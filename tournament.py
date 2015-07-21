@@ -6,58 +6,59 @@
 import psycopg2
 import pdb
 
-
-def connect():
-    """Connect to the PostgreSQL database.  Returns a database connection."""
-    return psycopg2.connect("dbname=tournament")
+def connect(database_name="tournament"):
+    """Connect to the Postgrequery database.  Returns a database connection."""
+    try:
+        db = psycopg2.connect("dbname={}".format(database_name))
+        cursor = db.cursor()
+        return db, cursor
+    except:
+        print("<your error message>")
 
 
 def deleteMatches():
     """Remove all the match records from the database."""
-    DB = connect()
-    cur = DB.cursor()
-    cur.execute('DELETE FROM matches')
-    DB.commit()
-    cur.close()
-    DB.close()
+    db, cursor = connect()
+    query = 'DELETE FROM matches'
+    cursor.execute(query)
+    db.commit()
+    db.close()
 
 
 def deletePlayers():
     """Remove all the player records from the database."""
-    DB = connect()
-    cur = DB.cursor()
-    cur.execute('DELETE FROM players')
-    DB.commit()
-    cur.close()
-    DB.close()
+    db, cursor = connect()
+    query = 'DELETE FROM players'
+    cursor.execute(query)
+    db.commit()
+    db.close()
 
 
 def countPlayers():
     """Returns the number of players currently registered."""
-    DB = connect()
-    cur = DB.cursor()
-    cur.execute('SELECT count(*) FROM players')
-    playersCount = cur.fetchone()
-    cur.close()
-    DB.close()
-    return playersCount[0]
+    db, cursor = connect()
+    query = 'SELECT count(*) FROM players'
+    cursor.execute(query)
+    players_count = cursor.fetchone()
+    db.close()
+    return players_count[0]
 
 
 def registerPlayer(name):
     """Adds a player to the tournament database.
 
     The database assigns a unique serial id number for the player.  (This
-    should be handled by your SQL database schema, not in your Python code.)
+    should be handled by your query database schema, not in your Python code.)
 
     Args:
       name: the player's full name (need not be unique).
     """
-    DB = connect()
-    cur = DB.cursor()
-    cur.execute("INSERT INTO players (name) values (%s)", (name,))
-    DB.commit()
-    cur.close()
-    DB.close()
+    db, cursor = connect()
+    query = 'INSERT INTO players (name) values (%s)'
+    params = (name,)
+    cursor.execute(query, params)
+    db.commit()
+    db.close()
 
 
 def playerStandings():
@@ -73,12 +74,11 @@ def playerStandings():
         wins: the number of matches the player has won
         matches: the number of matches the player has played
     """
-    DB = connect()
-    cur = DB.cursor()
-    cur.execute('SELECT * FROM player_standings')
-    player_standings = cur.fetchall()
-    cur.close()
-    DB.close()
+    db, cursor = connect()
+    query = 'SELECT * FROM player_standings'
+    cursor.execute(query)
+    player_standings = cursor.fetchall()
+    db.close()
     return player_standings
 
 
@@ -89,12 +89,12 @@ def reportMatch(winner, loser):
       winner:  the id number of the player who won
       loser:  the id number of the player who lost
     """
-    DB = connect()
-    cur = DB.cursor()
-    cur.execute("INSERT INTO matches (winner_id, loser_id) values (%s, %s)", (winner,loser))
-    DB.commit()
-    cur.close()
-    DB.close()
+    db, cursor = connect()
+    query = 'INSERT INTO matches (winner_id, loser_id) values (%s, %s)'
+    params = (winner,loser)
+    cursor.execute(query, params)
+    db.commit()
+    db.close()
 
 
 def swissPairings():
@@ -113,10 +113,15 @@ def swissPairings():
         name2: the second player's name
     """
     standings = playerStandings()
-    iterator = 0
     swissPairings = list()
 
-    while iterator < len(standings):
-        swissPairings.append((standings[iterator][0], standings[iterator][1], standings[iterator+1][0], standings[iterator+1][1]))
-        iterator += 2
+    # Iterate over the list two at a time, the zip method splits the single list
+    # into two list, the first list containing the elements with even indices,
+    # index % 2 = 0. The second list contains the elements with odd indices,
+    # index % 2 = 1.
+    #
+    # Source: Stack Overflow - https://goo.gl/AKmuXk
+    for player_1, player_2 in zip(standings[0::2], standings[1::2]):
+        swissPairings.append((player_1[0], player_1[1], player_2[0], player_2[1]))
+
     return swissPairings
